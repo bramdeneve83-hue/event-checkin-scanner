@@ -5,49 +5,114 @@
   <meta charset="UTF-8">
   <meta name="viewport"
         content="width=device-width, initial-scale=1">
-  <title>Camera Test</title>
+
+  <title>Event Check-in Scanner</title>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f1f4f7;
+      padding: 20px;
+      text-align: center;
+      color: #172b3a;
+    }
+
+    .kaart {
+      max-width: 430px;
+      margin: auto;
+      background: white;
+      padding: 24px;
+      border-radius: 18px;
+    }
+
+    button {
+      background: #172b3a;
+      color: white;
+      border: none;
+      padding: 15px;
+      margin-top: 12px;
+      border-radius: 8px;
+      font-size: 16px;
+      width: 100%;
+    }
+
+    #reader {
+      width: 100%;
+      margin-top: 15px;
+    }
+
+    #resultaat {
+      margin-top: 20px;
+      padding: 15px;
+      background: #d9f5e3;
+      border-radius: 10px;
+      display: none;
+      overflow-wrap: anywhere;
+    }
+  </style>
 </head>
-<body style="font-family:Arial;text-align:center;padding:20px">
 
-  <h2>EVENT CHECK-IN</h2>
-  <p>Test van de smartphonecamera</p>
+<body>
+  <div class="kaart">
 
-  <button onclick="startCamera()"
-          style="padding:15px;font-size:18px">
-    Camera starten
-  </button>
+    <h2>EVENT CHECK-IN</h2>
+    <p>Richt je camera op een QR-code of barcode.</p>
 
-  <p id="status"></p>
+    <div id="reader"></div>
 
-  <video id="video"
-         autoplay
-         playsinline
-         muted
-         style="width:100%;max-width:400px">
-  </video>
+    <button onclick="startScanner()">
+      Scanner starten
+    </button>
+
+    <div id="resultaat"></div>
+
+  </div>
 
   <script>
-    async function startCamera() {
-      const status = document.getElementById("status");
+    let scanner = null;
+    let bezig = false;
+
+    async function startScanner() {
+      if (scanner) return;
 
       try {
-        const stream =
-          await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: "environment"
-            },
-            audio: false
-          });
+        scanner = new Html5Qrcode("reader");
 
-        document.getElementById("video").srcObject = stream;
-        status.textContent = "Camera werkt!";
+        await scanner.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 220, height: 220 }
+          },
+          async (tekst) => {
+            if (bezig) return;
+            bezig = true;
+
+            const resultaat =
+              document.getElementById("resultaat");
+
+            resultaat.style.display = "block";
+            resultaat.textContent =
+              "Code gelezen: " + tekst;
+
+            try {
+              await scanner.stop();
+              scanner.clear();
+            } catch (e) {}
+
+            scanner = null;
+            bezig = false;
+          },
+          () => {}
+        );
 
       } catch (fout) {
-        status.textContent =
-          fout.name + ": " + fout.message;
+        scanner = null;
+        alert("Camera kon niet starten: " + fout.message);
       }
     }
   </script>
-
 </body>
 </html>
