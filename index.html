@@ -1,0 +1,53 @@
+
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+  <title>Camera Test</title>
+</head>
+<body style="font-family:Arial;text-align:center;padding:20px">
+
+  <h2>EVENT CHECK-IN</h2>
+  <p>Test van de smartphonecamera</p>
+
+  <button onclick="startCamera()"
+          style="padding:15px;font-size:18px">
+    Camera starten
+  </button>
+
+  <p id="status"></p>
+
+  <video id="video"
+         autoplay
+         playsinline
+         muted
+         style="width:100%;max-width:400px">
+  </video>
+
+  <script>
+    async function startCamera() {
+      const status = document.getElementById("status");
+
+      try {
+        const stream =
+          await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: "environment"
+            },
+            audio: false
+          });
+
+        document.getElementById("video").srcObject = stream;
+        status.textContent = "Camera werkt!";
+
+      } catch (fout) {
+        status.textContent =
+          fout.name + ": " + fout.message;
+      }
+    }
+  </script>
+
+</body>
+</html>
