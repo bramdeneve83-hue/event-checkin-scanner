@@ -114,33 +114,5 @@
       }
     }
   </script>
-
-<button onclick="testVerbinding()">
-  Test verbinding
-</button>
-
-<script>
-async function testVerbinding() {
-  try {
-    const antwoord = await fetch(
-      "https://event-checkin-api.bram-deneve83.workers.dev/test-verbinding",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({})
-      }
-    );
-
-    const resultaat = await antwoord.json();
-
-    alert(resultaat.bericht || "Geen bericht ontvangen.");
-  } catch (fout) {
-    alert("Verbinding mislukt.");
-  }
-}
-</script>
-
 </body>
 </html>
