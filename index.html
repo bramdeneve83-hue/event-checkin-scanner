@@ -92,6 +92,10 @@
 
       <div id="reader"></div>
 
+<button onclick="testMedewerker()">
+  Test medewerkerscode
+</button>
+
       <button id="startKnop" onclick="startScanner()">
         Scanner starten
       </button>
@@ -146,6 +150,47 @@
         "#e7eef7"
       );
     }
+
+    async function testMedewerker() {
+      if (!toegangscode) {
+        toonResultaat(
+          "Geen medewerkerscode ingevoerd.",
+          "#ffe6c7"
+        );
+        return;
+      }
+
+      try {
+        const antwoord = await fetch(
+          API + "/controleer-medewerker",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              medewerkerCode: toegangscode
+            })
+          }
+        );
+
+        const resultaat = await antwoord.json();
+
+        toonResultaat(
+          resultaat.bericht || "Geen antwoord ontvangen.",
+          resultaat.status === "ok"
+            ? "#d9f5e3"
+            : "#ffdada"
+        );
+
+      } catch (fout) {
+        toonResultaat(
+          "Verbinding met medewerkerscontrole mislukt.",
+          "#ffdada"
+        );
+      }
+    }
+
 
     async function startScanner() {
       if (scanner || bezig || !toegangscode) return;
