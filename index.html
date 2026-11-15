@@ -27,6 +27,15 @@
       border-radius: 18px;
     }
 
+    input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 14px;
+      border: 1px solid #aaa;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
     button {
       background: #172b3a;
       color: white;
@@ -36,6 +45,12 @@
       border-radius: 8px;
       font-size: 16px;
       width: 100%;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     #reader {
@@ -46,7 +61,6 @@
     #resultaat {
       margin-top: 20px;
       padding: 15px;
-      background: #d9f5e3;
       border-radius: 10px;
       display: none;
       overflow-wrap: anywhere;
@@ -56,26 +70,87 @@
 
 <body>
   <div class="kaart">
-
     <h2>EVENT CHECK-IN</h2>
-    <p>Richt je camera op een QR-code of barcode.</p>
 
-    <div id="reader"></div>
+    <div id="aanmelden">
+      <p>Voer je persoonlijke medewerkerscode in.</p>
 
-    <button onclick="startScanner()">
-      Scanner starten
-    </button>
+      <input
+        id="medewerkerCode"
+        type="password"
+        placeholder="Medewerkerscode"
+        autocomplete="off"
+      >
 
-    <div id="resultaat"></div>
+      <button onclick="aanmelden()">
+        Aanmelden
+      </button>
+    </div>
 
+    <div id="scannerScherm" hidden>
+      <p>Richt je camera op een QR-code.</p>
+
+      <div id="reader"></div>
+
+      <button id="startKnop" onclick="startScanner()">
+        Scanner starten
+      </button>
+
+      <button onclick="afmelden()">
+        Afmelden
+      </button>
+    </div>
+
+    <div id="resultaat" role="status"></div>
   </div>
 
   <script>
+    const API =
+      "https://event-checkin-api.bram-deneve83.workers.dev";
+
+    let toegangscode = "";
     let scanner = null;
     let bezig = false;
 
+    function toonResultaat(bericht, kleur) {
+      const vak = document.getElementById("resultaat");
+      vak.textContent = bericht;
+      vak.style.background = kleur;
+      vak.style.display = "block";
+    }
+
+    async function aanmelden() {
+      const invoer =
+        document.getElementById("medewerkerCode");
+
+      const code = invoer.value.trim();
+
+      if (!code) {
+        toonResultaat(
+          "Vul eerst je medewerkerscode in.",
+          "#ffe6c7"
+        );
+        return;
+      }
+
+      // De code wordt bij iedere ticketcontrole
+      // opnieuw door Google Apps Script gecontroleerd.
+      toegangscode = code;
+      invoer.value = "";
+
+      document.getElementById("aanmelden").hidden = true;
+      document.getElementById("scannerScherm").hidden = false;
+
+      toonResultaat(
+        "Code ingevoerd. Start de scanner.",
+        "#e7eef7"
+      );
+    }
+
     async function startScanner() {
-      if (scanner) return;
+      if (scanner || bezig || !toegangscode) return;
+
+      document.getElementById("startKnop").disabled = true;
 
       try {
         scanner = new Html5Qrcode("reader");
@@ -90,12 +165,10 @@
             if (bezig) return;
             bezig = true;
 
-            const resultaat =
-              document.getElementById("resultaat");
-
-            resultaat.style.display = "block";
-            resultaat.textContent =
-              "Code gelezen: " + tekst;
+            toonResultaat(
+              "Ticket controleren...",
+              "#e7eef7"
+            );
 
             try {
               await scanner.stop();
@@ -103,15 +176,88 @@
             } catch (e) {}
 
             scanner = null;
-            bezig = false;
+
+            try {
+              const antwoord = await fetch(API, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                  medewerkerCode: toegangscode,
+                  ticketCode: tekst
+                })
+              });
+
+              const resultaat = await antwoord.json();
+
+              if (antwoord.status === 429) {
+                toonResultaat(
+                  "Te veel pogingen. Probeer later opnieuw.",
+                  "#ffe6c7"
+                );
+              } else if (resultaat.status === "geldig") {
+                toonResultaat(
+                  "TOEGANG TOEGESTAAN\n" +
+                  (resultaat.naam || "") + "\n" +
+                  (resultaat.bericht || ""),
+                  "#d9f5e3"
+                );
+              } else if (resultaat.status === "gebruikt") {
+                toonResultaat(
+                  "AL GEBRUIKT\n" +
+                  (resultaat.naam || ""),
+                  "#ffe6c7"
+                );
+              } else {
+                toonResultaat(
+                  resultaat.bericht || "Ticket geweigerd.",
+                  "#ffdada"
+                );
+              }
+
+            } catch (fout) {
+              toonResultaat(
+                "Verbinding mislukt. Controleer het ticket opnieuw.",
+                "#ffdada"
+              );
+            } finally {
+              bezig = false;
+              document.getElementById("startKnop").disabled =
+                false;
+            }
           },
           () => {}
         );
 
       } catch (fout) {
         scanner = null;
-        alert("Camera kon niet starten: " + fout.message);
+        bezig = false;
+        document.getElementById("startKnop").disabled = false;
+
+        toonResultaat(
+          "Camera kon niet starten: " + fout.message,
+          "#ffdada"
+        );
       }
+    }
+
+    async function afmelden() {
+      if (bezig) return;
+
+      if (scanner) {
+        try {
+          await scanner.stop();
+          scanner.clear();
+        } catch (e) {}
+        scanner = null;
+      }
+
+      toegangscode = "";
+      document.getElementById("scannerScherm").hidden = true;
+      document.getElementById("aanmelden").hidden = false;
+      document.getElementById("resultaat").style.display =
+        "none";
     }
   </script>
 </body>
